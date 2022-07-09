@@ -43,6 +43,8 @@ func main() {
 		TCP        bool
 		Plugin     string
 		PluginOpts string
+		PacPort    int
+		PacFile    string
 	}
 
 	flag.BoolVar(&config.Verbose, "verbose", false, "verbose mode")
@@ -64,6 +66,8 @@ func main() {
 	flag.BoolVar(&flags.TCP, "tcp", true, "(server-only) enable TCP support")
 	flag.BoolVar(&config.TCPCork, "tcpcork", false, "coalesce writing first few packets")
 	flag.DurationVar(&config.UDPTimeout, "udptimeout", 5*time.Minute, "UDP tunnel timeout")
+	flag.IntVar(&flags.PacPort, "pac-port", 0, "(client-only) PAC file http server port")
+	flag.StringVar(&flags.PacFile, "pac-file", "", "(client-only) PAC file path")
 	flag.Parse()
 
 	if flags.Keygen > 0 {
@@ -142,6 +146,19 @@ func main() {
 
 		if flags.RedirTCP6 != "" {
 			go redir6Local(flags.RedirTCP6, addr, ciph.StreamConn)
+		}
+
+		if flags.PacPort > 0 {
+			if len(flags.PacFile) == 0 {
+				log.Fatal("config pac-file invalid")
+			}
+
+			_, err = os.Stat(flags.PacFile)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			go pacServer(flags.PacFile, flags.PacPort)
 		}
 	}
 
