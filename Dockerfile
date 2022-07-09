@@ -1,20 +1,26 @@
-FROM golang:1.15.0-alpine3.12 AS builder
+FROM golang:1.18.3 AS builder
 
-ENV GO111MODULE on
-ENV GOPROXY https://goproxy.cn
+WORKDIR /app
+USER root
+ARG GO111MODULE=on
+ARG GOPROXY=https://goproxy.cn
 
-RUN apk upgrade \
-    && apk add git \
-    && go get github.com/shadowsocks/go-shadowsocks2
+COPY go.mod .
+COPY go.sum .
 
-FROM alpine:3.12 AS dist
+RUN go mod download
 
-LABEL maintainer="mritd <mritd@linux.com>"
+COPY . .
 
-RUN apk upgrade \
-    && apk add tzdata \
-    && rm -rf /var/cache/apk/*
+RUN go build -a -o shadowsocks
 
-COPY --from=builder /go/bin/go-shadowsocks2 /usr/bin/shadowsocks
+FROM debian:buster-slim
+
+ENV TZ=Asia/Shanghai
+
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime \
+    && echo $TZ > /etc/timezone
+
+COPY --from=builder /app/shadowsocks /usr/bin/shadowsocks
 
 ENTRYPOINT ["shadowsocks"]
